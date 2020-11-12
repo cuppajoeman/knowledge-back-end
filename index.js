@@ -28,7 +28,7 @@ type Section {
     definitions: [Definition] @relation(name: "DEFINITION_OF", direction: IN)
     theorems: [Theorem] @relation(name: "THEOREM_OF", direction: IN)
     propositions: [Theorem] @relation(name: "PROPOSITION_OF", direction: IN)
-    lemmas: [Theorem] @relation(name: "LEMMAS_OF", direction: IN)
+    lemmas: [Theorem] @relation(name: "LEMMA_OF", direction: IN)
 }
 
 type Definition {
@@ -83,7 +83,6 @@ type Knowledge {
 
 type Mutation {
     createDefinition(sec_id: ID!, title: String!, content: String, definitionsUsed: [ID!]) : Definition 
-    @isAuthenticated
     @cypher(statement: """
     MATCH (s) WHERE id(s) = toInteger($sec_id)
     CREATE (s) <- [:DEFINITION_OF] - (x :Definition {title: $title, content: $content})  
@@ -109,7 +108,7 @@ type Mutation {
     WITH x, $definitionsUsed as ids 
     UNWIND ids as i  
     MATCH (d) WHERE id(d) = toInteger(i)
-    CREATE (x) <- [:THEOREM_OF] - (d) 
+    CREATE (x) <- [:DEFINITION_OF] - (d) 
     WITH x, $theoremsUsed as ids 
     UNWIND ids as i  
     MATCH (t) WHERE id(t) = toInteger(i)
@@ -123,11 +122,11 @@ type Mutation {
     WITH x, $definitionsUsed as ids 
     UNWIND ids as i  
     MATCH (d) WHERE id(d) = toInteger(i)
-    CREATE (x) <- [:PROPOSITION_OF] - (d) 
+    CREATE (x) <- [:DEFINITION_OF] - (d) 
     WITH x, $theoremsUsed as ids 
     UNWIND ids as i  
     MATCH (t) WHERE id(t) = toInteger(i)
-    CREATE (x) <- [:PROPOSITION_OF] - (t) 
+    CREATE (x) <- [:THEOREM_OF] - (t) 
     RETURN x
     """)
 
@@ -137,11 +136,29 @@ type Mutation {
     WITH x, $definitionsUsed as ids 
     UNWIND ids as i  
     MATCH (d) WHERE id(d) = toInteger(i)
-    CREATE (x) <- [:LEMMA_OF] - (d) 
+    CREATE (x) <- [:DEFINITION_OF] - (d) 
     WITH x, $theoremsUsed as ids 
     UNWIND ids as i  
     MATCH (t) WHERE id(t) = toInteger(i)
-    CREATE (x) <- [:LEMMA_OF] - (t) 
+    CREATE (x) <- [:_OF] - (t) 
+    RETURN x
+    """)
+
+    createSection(top_id: ID!, title: String!) : Section @cypher(statement: """
+    MATCH (s) WHERE id(s) = toInteger($top_id)
+    CREATE (s) <- [:SECTION_OF] - (x :Section {title: $title})  
+    RETURN x
+    """)
+
+    createTopic(subfield_id: ID!, title: String!) : Topic @cypher(statement: """
+    MATCH (s) WHERE id(s) = toInteger($subfield_id)
+    CREATE (s) <- [:TOPIC_OF] - (x : Topic {title: $title})  
+    RETURN x
+    """)
+
+    createSubfield(areaofstudy_id: ID!, title: String!) : Subfield @cypher(statement: """
+    MATCH (s) WHERE id(s) = toInteger($areaofstudy_id)
+    CREATE (s) <- [:SUBFIELD_OF] - (x : Subfield {title: $title})  
     RETURN x
     """)
 }`
