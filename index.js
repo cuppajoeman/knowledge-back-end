@@ -27,8 +27,9 @@ type Section {
     title: String!
     definitions: [Definition] @relation(name: "DEFINITION_OF", direction: IN)
     theorems: [Theorem] @relation(name: "THEOREM_OF", direction: IN)
-    propositions: [Theorem] @relation(name: "PROPOSITION_OF", direction: IN)
-    lemmas: [Theorem] @relation(name: "LEMMA_OF", direction: IN)
+    propositions: [Proposition] @relation(name: "PROPOSITION_OF", direction: IN)
+    lemmas: [Lemma] @relation(name: "LEMMA_OF", direction: IN)
+    questions: [Question] @relation(name: "QUESTION_OF", direction: IN)
 }
 
 type Definition {
@@ -44,6 +45,8 @@ type Theorem {
     proof: String!
     definitionsUsed: [Definition] @relation(name: "DEFINITION_OF", direction: IN)
     theoremsUsed: [Theorem] @relation(name: "THEOREM_OF", direction: IN)
+    propositionsUsed: [Proposition] @relation(name: "PROPOSITION_OF", direction: IN)
+    lemmasUsed: [Lemma] @relation(name: "LEMMA_OF", direction: IN)
 }
 
 type Proposition {
@@ -52,6 +55,8 @@ type Proposition {
     proof: String!
     definitionsUsed: [Definition] @relation(name: "DEFINITION_OF", direction: IN)
     theoremsUsed: [Theorem] @relation(name: "THEOREM_OF", direction: IN)
+    propositionsUsed: [Proposition] @relation(name: "PROPOSITION_OF", direction: IN)
+    lemmasUsed: [Lemma] @relation(name: "LEMMA_OF", direction: IN)
 }
 
 type Lemma {
@@ -60,19 +65,23 @@ type Lemma {
     proof: String!
     definitionsUsed: [Definition] @relation(name: "DEFINITION_OF", direction: IN)
     theoremsUsed: [Theorem] @relation(name: "THEOREM_OF", direction: IN)
+    propositionsUsed: [Proposition] @relation(name: "PROPOSITION_OF", direction: IN)
+    lemmasUsed: [Lemma] @relation(name: "LEMMA_OF", direction: IN)
 }
 
-type Exercise {
-    # theoremId: ID!
+type Question {
     title: String!
-    content: String
-    definitionsUsed: [Definition]
-    suggestedKnowledge: [Theorem]
+    solution: String!
+    definitionsUsed: [Definition] @relation(name: "DEFINITION_OF", direction: IN)
+    theoremsUsed: [Theorem] @relation(name: "THEOREM_OF", direction: IN)
+    propositionsUsed: [Proposition] @relation(name: "PROPOSITION_OF", direction: IN)
+    lemmasUsed: [Lemma] @relation(name: "LEMMA_OF", direction: IN)
 }
+
 type User {
     # userId: ID!
     name: String!
-    completedExercises: [Exercise]
+    #completedExercises: [Exercise]
 }
 
 type Knowledge {
@@ -80,9 +89,21 @@ type Knowledge {
     theorems: [Theorem]
 }
 
+type KnowledgeUsed {
+    definitionsUsed: [Definition] @relation(name: "DEFINITION_OF", direction: IN)
+    theoremsUsed: [Theorem] @relation(name: "THEOREM_OF", direction: IN)
+    propositionsUsed: [Proposition] @relation(name: "PROPOSITION_OF", direction: IN)
+    lemmasUsed: [Lemma] @relation(name: "LEMMA_OF", direction: IN)
+}
+
 
 type Mutation {
-    createDefinition(sec_id: ID!, title: String!, content: String, definitionsUsed: [ID!]) : Definition 
+    createDefinition(
+        sec_id: ID!, 
+        title: String!, 
+        content: String, 
+        definitionsUsed: [ID!]
+        ) : Definition 
     @cypher(statement: """
     MATCH (s) WHERE id(s) = toInteger($sec_id)
     CREATE (s) <- [:DEFINITION_OF] - (x :Definition {title: $title, content: $content})  
@@ -102,7 +123,15 @@ type Mutation {
         """
     )
 
-    createTheorem(sec_id: ID!, title: String!, proof: String, definitionsUsed: [ID!], theoremsUsed: [ID!]) : Theorem @cypher(statement: """
+    createTheorem(
+        sec_id: ID!, 
+        title: String!, 
+        proof: String, 
+        definitionsUsed: [ID!], 
+        theoremsUsed: [ID!],
+        propositionsUsed: [ID!], 
+        lemmasUsed: [ID!]
+        ) : Theorem @cypher(statement: """
     MATCH (s) WHERE id(s) = toInteger($sec_id)
     CREATE (s) <- [:THEOREM_OF] - (x :Theorem {title: $title, proof: $proof})  
     WITH x, $definitionsUsed as ids 
@@ -113,12 +142,28 @@ type Mutation {
     UNWIND ids as i  
     MATCH (t) WHERE id(t) = toInteger(i)
     CREATE (x) <- [:THEOREM_OF] - (t) 
+    WITH x, $lemmasUsed as ids 
+    UNWIND ids as i  
+    MATCH (t) WHERE id(t) = toInteger(i)
+    CREATE (x) <- [:LEMMA_OF] - (t) 
+    WITH x, $propositionsUsed as ids 
+    UNWIND ids as i  
+    MATCH (t) WHERE id(t) = toInteger(i)
+    CREATE (x) <- [:PROPOSITION_OF] - (t) 
     RETURN x
     """)
 
-    createProposition(sec_id: ID!, title: String!, proof: String, definitionsUsed: [ID!], theoremsUsed: [ID!]) : Theorem @cypher(statement: """
+    createProposition(
+        sec_id: ID!, 
+        title: String!, 
+        proof: String, 
+        definitionsUsed: [ID!], 
+        theoremsUsed: [ID!],
+        propositionsUsed: [ID!], 
+        lemmasUsed: [ID!]
+        ) : Theorem @cypher(statement: """
     MATCH (s) WHERE id(s) = toInteger($sec_id)
-    CREATE (s) <- [:PROPOSITION_OF] - (x :Theorem {title: $title, proof: $proof})  
+    CREATE (s) <- [:PROPOSITION_OF] - (x :Proposition {title: $title, proof: $proof})  
     WITH x, $definitionsUsed as ids 
     UNWIND ids as i  
     MATCH (d) WHERE id(d) = toInteger(i)
@@ -127,12 +172,28 @@ type Mutation {
     UNWIND ids as i  
     MATCH (t) WHERE id(t) = toInteger(i)
     CREATE (x) <- [:THEOREM_OF] - (t) 
+    WITH x, $lemmasUsed as ids 
+    UNWIND ids as i  
+    MATCH (t) WHERE id(t) = toInteger(i)
+    CREATE (x) <- [:LEMMA_OF] - (t) 
+    WITH x, $propositionsUsed as ids 
+    UNWIND ids as i  
+    MATCH (t) WHERE id(t) = toInteger(i)
+    CREATE (x) <- [:PROPOSITION_OF] - (t) 
     RETURN x
     """)
 
-    createLemma(sec_id: ID!, title: String!, proof: String, definitionsUsed: [ID!], theoremsUsed: [ID!]) : Theorem @cypher(statement: """
+    createLemma(
+        sec_id: ID!, 
+        title: String!, 
+        proof: String, 
+        definitionsUsed: [ID!], 
+        theoremsUsed: [ID!],
+        propositionsUsed: [ID!], 
+        lemmasUsed: [ID!]
+        ) : Theorem @cypher(statement: """
     MATCH (s) WHERE id(s) = toInteger($sec_id)
-    CREATE (s) <- [:LEMMA_OF] - (x :Theorem {title: $title, proof: $proof})  
+    CREATE (s) <- [:LEMMA_OF] - (x :Lemma {title: $title, proof: $proof})  
     WITH x, $definitionsUsed as ids 
     UNWIND ids as i  
     MATCH (d) WHERE id(d) = toInteger(i)
@@ -140,7 +201,45 @@ type Mutation {
     WITH x, $theoremsUsed as ids 
     UNWIND ids as i  
     MATCH (t) WHERE id(t) = toInteger(i)
-    CREATE (x) <- [:_OF] - (t) 
+    CREATE (x) <- [:THEOREM_OF] - (t) 
+    WITH x, $lemmasUsed as ids 
+    UNWIND ids as i  
+    MATCH (t) WHERE id(t) = toInteger(i)
+    CREATE (x) <- [:LEMMA_OF] - (t) 
+    WITH x, $propositionsUsed as ids 
+    UNWIND ids as i  
+    MATCH (t) WHERE id(t) = toInteger(i)
+    CREATE (x) <- [:PROPOSITION_OF] - (t) 
+    RETURN x
+    """)
+    
+    createQuestion(
+        sec_id: ID!, 
+        title: String!, 
+        solution: String, 
+        definitionsUsed: [ID!], 
+        theoremsUsed: [ID!],
+        propositionsUsed: [ID!], 
+        lemmasUsed: [ID!]
+        ) : Theorem @cypher(statement: """
+    MATCH (s) WHERE id(s) = toInteger($sec_id)
+    CREATE (s) <- [:QUESTION_OF] - (x :Question {title: $title, solution: $solution})  
+    WITH x, $definitionsUsed as ids 
+    UNWIND ids as i  
+    MATCH (d) WHERE id(d) = toInteger(i)
+    CREATE (x) <- [:DEFINITION_OF] - (d) 
+    WITH x, $theoremsUsed as ids 
+    UNWIND ids as i  
+    MATCH (t) WHERE id(t) = toInteger(i)
+    CREATE (x) <- [:THEOREM_OF] - (t) 
+    WITH x, $lemmasUsed as ids 
+    UNWIND ids as i  
+    MATCH (t) WHERE id(t) = toInteger(i)
+    CREATE (x) <- [:LEMMA_OF] - (t) 
+    WITH x, $propositionsUsed as ids 
+    UNWIND ids as i  
+    MATCH (t) WHERE id(t) = toInteger(i)
+    CREATE (x) <- [:PROPOSITION_OF] - (t) 
     RETURN x
     """)
 
