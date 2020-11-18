@@ -260,7 +260,20 @@ type Mutation {
     CREATE (s) <- [:SUBFIELD_OF] - (x : Subfield {title: $title})  
     RETURN x
     """)
-}`
+
+
+
+
+}
+
+type Query {
+    definitionsOfSection(sec_id: ID!) : [Definition] @cypher(statement: """
+    MATCH (d) - [:DEFINITION_OF] -> (s) WHERE id(s) = toInteger($sec_id)
+    RETURN d
+    """)
+}
+
+`
 
 const driver = neo4j.driver(
   "bolt://137.220.52.96:7687",
