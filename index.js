@@ -30,6 +30,7 @@ type Section {
     propositions: [Proposition] @relation(name: "PROPOSITION_OF", direction: IN)
     lemmas: [Lemma] @relation(name: "LEMMA_OF", direction: IN)
     questions: [Question] @relation(name: "QUESTION_OF", direction: IN)
+    notations: [Notation] @relation(name: "NOTATION_OF", direction: IN)
 }
 
 type Definition {
@@ -37,6 +38,7 @@ type Definition {
     title: String!
     content: String
     definitionsUsed: [Definition] @relation(name: "DEFINITION_OF", direction: IN)
+    notationUsed: [Notation] @relation(name: "NOTATION_OF", direction: IN)
 }
 
 type Theorem {
@@ -47,6 +49,7 @@ type Theorem {
     theoremsUsed: [Theorem] @relation(name: "THEOREM_OF", direction: IN)
     propositionsUsed: [Proposition] @relation(name: "PROPOSITION_OF", direction: IN)
     lemmasUsed: [Lemma] @relation(name: "LEMMA_OF", direction: IN)
+    notationUsed: [Notation] @relation(name: "NOTATION_OF", direction: IN)
 }
 
 type Proposition {
@@ -57,6 +60,7 @@ type Proposition {
     theoremsUsed: [Theorem] @relation(name: "THEOREM_OF", direction: IN)
     propositionsUsed: [Proposition] @relation(name: "PROPOSITION_OF", direction: IN)
     lemmasUsed: [Lemma] @relation(name: "LEMMA_OF", direction: IN)
+    notationUsed: [Notation] @relation(name: "NOTATION_OF", direction: IN)
 }
 
 type Lemma {
@@ -67,11 +71,22 @@ type Lemma {
     theoremsUsed: [Theorem] @relation(name: "THEOREM_OF", direction: IN)
     propositionsUsed: [Proposition] @relation(name: "PROPOSITION_OF", direction: IN)
     lemmasUsed: [Lemma] @relation(name: "LEMMA_OF", direction: IN)
+    notationUsed: [Notation] @relation(name: "NOTATION_OF", direction: IN)
 }
 
 type Question {
     title: String!
     solution: String!
+    definitionsUsed: [Definition] @relation(name: "DEFINITION_OF", direction: IN)
+    theoremsUsed: [Theorem] @relation(name: "THEOREM_OF", direction: IN)
+    propositionsUsed: [Proposition] @relation(name: "PROPOSITION_OF", direction: IN)
+    lemmasUsed: [Lemma] @relation(name: "LEMMA_OF", direction: IN)
+    notationUsed: [Notation] @relation(name: "NOTATION_OF", direction: IN)
+}
+
+type Notation {
+    title: String!
+    content: String!
     definitionsUsed: [Definition] @relation(name: "DEFINITION_OF", direction: IN)
     theoremsUsed: [Theorem] @relation(name: "THEOREM_OF", direction: IN)
     propositionsUsed: [Proposition] @relation(name: "PROPOSITION_OF", direction: IN)
@@ -102,7 +117,8 @@ type Mutation {
         sec_id: ID!, 
         title: String!, 
         content: String, 
-        definitionsUsed: [ID!]
+        definitionsUsed: [ID!],
+        notationUsed: [ID!]
         ) : Definition 
     @cypher(statement: """
     MATCH (s) WHERE id(s) = toInteger($sec_id)
@@ -111,6 +127,10 @@ type Mutation {
     UNWIND ids as i  
     MATCH (d) WHERE id(d) = toInteger(i)
     CREATE (x) <- [:DEFINITION_OF] - (d) 
+    WITH x, $notationUsed as ids 
+    UNWIND ids as i  
+    MATCH (a) WHERE id(a) = toInteger(i)
+    CREATE (x) <- [:NOTATION_OF] - (a) 
     RETURN x
     """)
 
@@ -221,9 +241,39 @@ type Mutation {
         theoremsUsed: [ID!],
         propositionsUsed: [ID!], 
         lemmasUsed: [ID!]
-        ) : Theorem @cypher(statement: """
+        ) : Question @cypher(statement: """
     MATCH (s) WHERE id(s) = toInteger($sec_id)
     CREATE (s) <- [:QUESTION_OF] - (x :Question {title: $title, solution: $solution})  
+    WITH x, $definitionsUsed as ids 
+    UNWIND ids as i  
+    MATCH (d) WHERE id(d) = toInteger(i)
+    CREATE (x) <- [:DEFINITION_OF] - (d) 
+    WITH x, $theoremsUsed as ids 
+    UNWIND ids as i  
+    MATCH (t) WHERE id(t) = toInteger(i)
+    CREATE (x) <- [:THEOREM_OF] - (t) 
+    WITH x, $lemmasUsed as ids 
+    UNWIND ids as i  
+    MATCH (t) WHERE id(t) = toInteger(i)
+    CREATE (x) <- [:LEMMA_OF] - (t) 
+    WITH x, $propositionsUsed as ids 
+    UNWIND ids as i  
+    MATCH (t) WHERE id(t) = toInteger(i)
+    CREATE (x) <- [:PROPOSITION_OF] - (t) 
+    RETURN x
+    """)
+
+    createNotation(
+        sec_id: ID!, 
+        title: String!, 
+        content: String, 
+        definitionsUsed: [ID!], 
+        theoremsUsed: [ID!],
+        propositionsUsed: [ID!], 
+        lemmasUsed: [ID!]
+        ) : Notation @cypher(statement: """
+    MATCH (s) WHERE id(s) = toInteger($sec_id)
+    CREATE (s) <- [:NOTATION_OF] - (x :Notation {title: $title, content: $content})  
     WITH x, $definitionsUsed as ids 
     UNWIND ids as i  
     MATCH (d) WHERE id(d) = toInteger(i)
@@ -270,6 +320,11 @@ type Query {
     definitionsOfSection(sec_id: ID!) : [Definition] @cypher(statement: """
     MATCH (d) - [:DEFINITION_OF] -> (s) WHERE id(s) = toInteger($sec_id)
     RETURN d
+    """)
+
+    notationOfSection(sec_id: ID!) : [Notation] @cypher(statement: """
+    MATCH (n) - [:NOTATION_OF] -> (s) WHERE id(s) = toInteger($sec_id)
+    RETURN n
     """)
 }
 
